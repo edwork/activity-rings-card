@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0.0 (unreleased)
+## 2.0.0 - 2026-11-11
 
 First public release, for Companion App for iOS 2026.10.3.
 
