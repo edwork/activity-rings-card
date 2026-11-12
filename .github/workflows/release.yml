@@ -1,0 +1,28 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm run check
+      - run: npm test
+      - name: Tag matches the card and package versions
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          grep -q "CARD_VERSION = \"$v\"" dist/activity-rings-card.js || { echo "::error::CARD_VERSION is not $v"; exit 1; }
+          grep -q "\"version\": \"$v\"" package.json || { echo "::error::package.json version is not $v"; exit 1; }
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: dist/activity-rings-card.js
+          generate_release_notes: true

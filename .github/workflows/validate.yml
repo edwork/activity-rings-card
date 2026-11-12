@@ -1,0 +1,32 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Syntax and unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm run check
+      - run: npm test
+
+  hacs:
+    name: HACS validation
+    runs-on: ubuntu-latest
+    steps:
+      # hacs/action publishes no maintained version tags; HACS documents @main.
+      - uses: hacs/action@main
+        with:
+          category: plugin

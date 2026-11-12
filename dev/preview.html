@@ -1,0 +1,145 @@
+<!doctype html>
+<!-- Offline preview with a fake hass: every layout x theme, plus edge cases.
+     From the repo root: python3 -m http.server 8000, then open
+     http://localhost:8000/dev/preview.html   (?light=1 for HA light mode,
+     ?only=<section id> to show one section, used for the README screenshots). -->
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Activity Rings preview</title>
+<style>
+  body { margin: 0; padding: 16px; font-family: system-ui, sans-serif;
+    background: #111111; color: #ddd; --primary-text-color: #e1e1e1; --secondary-text-color: #9b9b9b;
+    --primary-background-color: #111111; }
+  body.light { background: #f2f2f7; color: #222; --primary-text-color: #212121; --secondary-text-color: #727272;
+    --primary-background-color: #fafafa; }
+  section { margin-bottom: 22px; max-width: 980px; }
+  h3 { margin: 0 0 8px; font-size: 13px; font-weight: 600; opacity: .7; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; align-items: start; }
+  .wide { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; align-items: start; }
+  .one { max-width: 520px; }
+  ha-card { display: block; border-radius: 12px; background: var(--ha-card-background, #1c1c1e);
+    box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+  body.light ha-card { background: var(--ha-card-background, #fff); }
+  body.shot h3 { display: none; }
+</style>
+<script>
+  customElements.define("ha-card", class extends HTMLElement {});
+</script>
+<script type="module" src="../dist/activity-rings-card.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="module">
+  const now = new Date();
+  const ago = (h) => new Date(now - h * 3600e3).toISOString();
+  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 22, 40).toISOString();
+  const params = new URLSearchParams(location.search);
+
+  // Two fake phones as the Companion App 2026.10.3 registers them, plus odd cases.
+  const entities = {};
+  const states = {};
+  const uids = {};
+  const add = (device, id, uid, state, unit, updated = ago(0.4)) => {
+    entities[id] = { entity_id: id, device_id: device, platform: "mobile_app" };
+    states[id] = { state: String(state), attributes: { unit_of_measurement: unit },
+      last_updated: updated, last_changed: updated };
+    uids[id] = `A1B2C3_${uid}`;
+  };
+  add("iphone", "sensor.iphone_active_energy", "health_active_energy_burned", 412, "kcal");
+  add("iphone", "sensor.iphone_move_goal", "health_active_energy_burned_goal", 500, "kcal", ago(50));
+  add("iphone", "sensor.iphone_exercise_time", "health_apple_exercise_time", 34, "min");
+  add("iphone", "sensor.iphone_exercise_goal", "health_apple_exercise_time_goal", 30, "min", ago(50));
+  add("iphone", "sensor.iphone_stand_hours", "health_apple_stand_hours", 9, "hours");
+  add("iphone", "sensor.iphone_stand_goal", "health_apple_stand_hours_goal", 12, "hours", ago(50));
+  // Over goal, hour-based exercise unit
+  add("athlete", "sensor.athlete_active_energy", "health_active_energy_burned", 1140, "kcal");
+  add("athlete", "sensor.athlete_move_goal", "health_active_energy_burned_goal", 700, "kcal", ago(50));
+  add("athlete", "sensor.athlete_exercise_time", "health_apple_exercise_time", 1.6, "h");
+  add("athlete", "sensor.athlete_stand_hours", "health_apple_stand_hours", 13, "hours");
+  // No watch: stand unavailable; Move last synced yesterday
+  add("nowatch", "sensor.nowatch_active_energy", "health_active_energy_burned", 1450, "kcal", yesterday);
+  add("nowatch", "sensor.nowatch_exercise_time", "health_apple_exercise_time", "unavailable", "min");
+  add("nowatch", "sensor.nowatch_stand_hours", "health_apple_stand_hours", "unavailable", "hours");
+  // Older app: no stand / goal sensors at all
+  add("oldapp", "sensor.oldapp_active_energy", "health_active_energy_burned", 260, "kcal");
+  add("oldapp", "sensor.oldapp_exercise_time", "health_apple_exercise_time", 18, "min");
+
+  const goalFor = (id) => (id.includes("energy") ? 500 : id.includes("exercise") ? 30 : 12);
+  const history = (id, withStart) => {
+    if (id.endsWith("_goal")) {
+      // The Move goal was raised from 450 to 500 three days ago.
+      if (!id.includes("move")) return [{ s: states[id].state, lu: (now - 7 * 864e5) / 1000 }];
+      return [{ s: "450", lu: (now - 7 * 864e5) / 1000 }, { s: "500", lu: (now - 3 * 864e5) / 1000 }];
+    }
+    const out = [];
+    for (let d = 6; d >= 1; d--) {
+      const base = new Date(now.getFullYear(), now.getMonth(), now.getDate() - d);
+      const f = [0.62, 1.12, 0.85, 1.4, 0.7, 1.03][6 - d] * (id.includes("stand") ? 0.95 : 1);
+      for (let h = 8; h <= 22; h += 2) {
+        out.push({ s: String(Math.round(goalFor(id) * f * (h - 6) / 16)), lu: base.getTime() / 1000 + h * 3600 });
+      }
+    }
+    return out;
+  };
+  const hass = {
+    states,
+    entities,
+    devices: {},
+    themes: { darkMode: !params.has("light") },
+    locale: { language: "en-US" },
+    callWS: async (msg) => {
+      if (msg.type === "config/entity_registry/get_entries") {
+        return Object.fromEntries(msg.entity_ids.map((id) => [id, { unique_id: uids[id] }]));
+      }
+      return Object.fromEntries(msg.entity_ids.map((id) => [id, history(id, msg.include_start_time_state)]));
+    },
+  };
+  if (params.has("light")) document.body.classList.add("light");
+
+  const T = "custom:activity-rings-card";
+  const sections = [
+    ["hero", "Full, device only: dark / light", "wide", [
+      { device: "iphone", theme: "dark" },
+      { device: "iphone", theme: "light", show_week: false },
+    ]],
+    ["auto", "Full, auto theme (follows HA) / transparent", "wide", [
+      { device: "iphone" },
+      { device: "iphone", theme: "transparent", title: "Transparent", show_footer: false },
+    ]],
+    ["rings", "Ring only: dark / light / transparent", "grid", [
+      { device: "iphone", layout: "ring", theme: "dark" },
+      { device: "iphone", layout: "ring", theme: "light" },
+      { device: "iphone", layout: "ring", theme: "transparent" },
+    ]],
+    ["values", "Ring with values: dark / light / Move only", "grid", [
+      { device: "iphone", layout: "ring_values", theme: "dark" },
+      { device: "iphone", layout: "ring_values", theme: "light" },
+      { device: "iphone", layout: "ring_values", theme: "dark", rings: ["move"] },
+    ]],
+    ["edge", "Edge: over goal (hours unit) / no watch + stale / older app (Apple default goals)", "grid", [
+      { device: "athlete", layout: "ring_values", theme: "dark" },
+      { device: "nowatch", theme: "dark", show_week: false },
+      { device: "oldapp", theme: "dark", show_week: false },
+    ]],
+  ];
+  const only = params.get("only");
+  if (only) document.body.classList.add("shot");
+  const root = document.getElementById("root");
+  for (const [id, title, cls, cfgs] of sections) {
+    if (only && only !== id) continue;
+    const sec = document.createElement("section"); sec.id = id;
+    const h = document.createElement("h3"); h.textContent = title; sec.append(h);
+    const box = document.createElement("div"); box.className = cls; sec.append(box);
+    root.append(sec);
+    for (const cfg of cfgs) {
+      const el = document.createElement("activity-rings-card");
+      el.setConfig({ type: T, animate: false, ...cfg });
+      box.append(el);
+      el.hass = hass;
+    }
+  }
+</script>
+</body>
+</html>
