@@ -22,7 +22,7 @@
  * Safari (the iOS app's WKWebView) renders properly along an arc.
  */
 
-const CARD_VERSION = "2.0.0";
+const CARD_VERSION = "2.0.1";
 const CARD_TYPE = "activity-rings-card";
 const EDITOR_TYPE = `${CARD_TYPE}-editor`;
 
@@ -95,10 +95,67 @@ const RETIRED = ["stand_placeholder"];
 const LAYOUTS = ["full", "ring", "ring_values"];
 const THEMES = ["auto", "dark", "light", "transparent"];
 const BAD_STATES = new Set(["unknown", "unavailable", "none", ""]);
+// Theme variables `auto` reads, card first. A see-through card background
+// falls through to the next one.
+const THEME_BACKGROUNDS = ["--ha-card-background", "--card-background-color", "--primary-background-color"];
 
 // ---------------------------------------------------------------------------
 // Small helpers
 // ---------------------------------------------------------------------------
+
+// Is this CSS colour dark? true / false, or null when it can't tell: not a
+// colour it can read, or mostly see-through (alpha < 0.35). Reads hex and
+// rgb()/rgba(); anything else goes through a canvas, which normalises named,
+// hsl() and other colours to hex or rgba().
+let colorCtx;
+function colorIsDark(value) {
+  let v = String(value ?? "").trim().toLowerCase();
+  if (!v) return null;
+  if (!/^(#|rgba?\()/.test(v)) {
+    colorCtx ??= document.createElement("canvas")?.getContext?.("2d") ?? false;
+    if (!colorCtx) return null;
+    colorCtx.fillStyle = "#010203";
+    colorCtx.fillStyle = v;
+    const f = String(colorCtx.fillStyle).toLowerCase();
+    if (f === "#010203" && v !== "#010203") return null;
+    v = f;
+  }
+  let r, g, b, a = 1;
+  const hex = v.match(/^#([0-9a-f]{3,8})$/);
+  if (hex) {
+    let h = hex[1];
+    if (h.length === 3 || h.length === 4) h = [...h].map((c) => c + c).join("");
+    if (h.length !== 6 && h.length !== 8) return null;
+    [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+    if (h.length === 8) a = parseInt(h.slice(6, 8), 16) / 255;
+  } else {
+    const m = v.match(/^rgba?\(([^)]*)\)$/);
+    if (!m) return null;
+    const p = m[1].split(/[\s,/]+/).filter(Boolean);
+    if (p.length < 3) return null;
+    [r, g, b] = p.slice(0, 3).map((x) => (x.endsWith("%") ? parseFloat(x) * 2.55 : parseFloat(x)));
+    if (p[3] !== undefined) a = p[3].endsWith("%") ? parseFloat(p[3]) / 100 : parseFloat(p[3]);
+    if ([r, g, b, a].some((x) => Number.isNaN(x))) return null;
+  }
+  if (a < 0.35) return null;
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 < 0.5;
+}
+
+// Is the theme behind this element dark? Reads the resolved theme
+// backgrounds, so a dark-only theme (no light/dark `modes`, where
+// hass.themes.darkMode stays false) still gets the dark card. null when it
+// can't tell; `read` is injectable for tests.
+function themeIsDark(el, read = (name) => getComputedStyle(el).getPropertyValue(name)) {
+  try {
+    for (const name of THEME_BACKGROUNDS) {
+      const dark = colorIsDark(read(name));
+      if (dark !== null) return dark;
+    }
+  } catch (e) {
+    // Not attached yet, or no getComputedStyle: let darkMode decide.
+  }
+  return null;
+}
 
 const TAU = Math.PI * 2;
 
@@ -673,7 +730,7 @@ class ActivityRingsCard extends HTMLElement {
     const t = this._config.theme;
     if (t === "dark") return true;
     if (t === "light") return false;
-    return Boolean(this._hass?.themes?.darkMode);
+    return themeIsDark(this) ?? Boolean(this._hass?.themes?.darkMode);
   }
 
   // Unique ids make the device match survive renames. The entity_id match is
@@ -1347,5 +1404,6 @@ if (!window.customCards.some((c) => c.type === CARD_TYPE)) {
 console.info(`%c ACTIVITY-RINGS-CARD %c ${CARD_VERSION} `,
   "color:#000;background:#FA114F;font-weight:700", "color:#000;background:#92E82A");
 
-export { ActivityRingsCard, ActivityRingsCardEditor, APPLE_GOALS, SENSORS, editorConfig,
-  fetchUniqueIds, findDevice, hexColor, resolveDevice, resolveEntities, ringColors, tapAction, toRingUnits };
+export { ActivityRingsCard, ActivityRingsCardEditor, APPLE_GOALS, SENSORS, colorIsDark, editorConfig,
+  fetchUniqueIds, findDevice, hexColor, resolveDevice, resolveEntities, ringColors, tapAction, themeIsDark,
+  toRingUnits };

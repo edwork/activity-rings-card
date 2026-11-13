@@ -18,8 +18,8 @@ globalThis.cancelAnimationFrame = () => {};
 console.info = () => {};
 
 const {
-  ActivityRingsCard, APPLE_GOALS, editorConfig, fetchUniqueIds, findDevice, hexColor, resolveDevice,
-  resolveEntities, ringColors, tapAction, toRingUnits,
+  ActivityRingsCard, APPLE_GOALS, colorIsDark, editorConfig, fetchUniqueIds, findDevice, hexColor, resolveDevice,
+  resolveEntities, ringColors, tapAction, themeIsDark, toRingUnits,
 } = await import("../dist/activity-rings-card.js");
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -378,4 +378,60 @@ test("week: a failed load is retried later, not cached for the day", async () =>
   await c._maybeLoadWeek();
   assert.ok(calls > n);
   assert.notEqual(c._weekKey, "");
+});
+
+test("colorIsDark reads hex and rgb()/rgba() theme colours", () => {
+  assert.equal(colorIsDark("#18181b"), true);
+  assert.equal(colorIsDark("#FFFFFF"), false);
+  assert.equal(colorIsDark("#000"), true);
+  assert.equal(colorIsDark(" #f7f9fc "), false);
+  assert.equal(colorIsDark("rgb(50, 51, 53)"), true);
+  assert.equal(colorIsDark("rgb(243 243 244)"), false);
+  assert.equal(colorIsDark("rgba(255, 255, 255, 0.74)"), false);
+  assert.equal(colorIsDark("#10203080"), true);
+  // See-through or unreadable: no answer, so the next variable / darkMode decides.
+  assert.equal(colorIsDark("rgba(0, 0, 0, 0.1)"), null);
+  assert.equal(colorIsDark("#00000000"), null);
+  assert.equal(colorIsDark("transparent"), null);
+  assert.equal(colorIsDark(""), null);
+  assert.equal(colorIsDark(undefined), null);
+  assert.equal(colorIsDark("#12"), null);
+});
+
+test("themeIsDark: card background first, see-through falls through", () => {
+  const vars = (v) => (name) => v[name] ?? "";
+  assert.equal(themeIsDark({}, vars({ "--card-background-color": "#18181b" })), true);
+  assert.equal(themeIsDark({}, vars({ "--card-background-color": "#ffffff" })), false);
+  assert.equal(themeIsDark({}, vars({
+    "--ha-card-background": "rgba(255, 255, 255, 0.05)", "--primary-background-color": "#111419",
+  })), true);
+  assert.equal(themeIsDark({}, vars({})), null);
+  assert.equal(themeIsDark({}, () => { throw new Error("detached"); }), null);
+});
+
+test("auto follows a dark-only theme even when darkMode is false", () => {
+  const hass = makeHass();
+  hass.themes = { darkMode: false };
+  const c = card({ device: PHONE }, hass);
+  const gcs = globalThis.getComputedStyle;
+  try {
+    // A dark theme without light/dark modes (darkMode stays false).
+    globalThis.getComputedStyle = () => ({ getPropertyValue: (n) => (n === "--card-background-color" ? "#18181b" : "") });
+    assert.equal(c._isDark(), true);
+    // A light theme while darkMode is (wrongly) on: the background wins.
+    hass.themes = { darkMode: true };
+    globalThis.getComputedStyle = () => ({ getPropertyValue: (n) => (n === "--card-background-color" ? "#ffffff" : "") });
+    assert.equal(c._isDark(), false);
+    // Nothing readable: darkMode decides, as in 2.0.0.
+    globalThis.getComputedStyle = () => ({ getPropertyValue: () => "" });
+    assert.equal(c._isDark(), true);
+    hass.themes = { darkMode: false };
+    assert.equal(c._isDark(), false);
+    // Explicit themes ignore the background.
+    c._config = { ...c._config, theme: "light" };
+    globalThis.getComputedStyle = () => ({ getPropertyValue: () => "#000000" });
+    assert.equal(c._isDark(), false);
+  } finally {
+    globalThis.getComputedStyle = gcs;
+  }
 });

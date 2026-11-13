@@ -25,8 +25,8 @@ Pick your iPhone in the editor and the card finds all six sensors it needs.
   defaults (Exercise 30 min, Stand 12 h).
 - **7-day strip** with each past day measured against the goal you had *that* day.
 - **Three layouts:** rings with details, rings only, and rings with values inside.
-- **Four themes:** `auto` (follows Home Assistant's dark mode), `dark`, `light`
-  and `transparent`.
+- **Four themes:** `auto` (follows your dashboard theme, dark-only themes
+  included), `dark`, `light` and `transparent`.
 - Animated rings, gradient tips, a second lap past 100%, and Apple's arrow glyphs.
 - **Midnight-aware.** A total last reported before midnight is yesterday's, so the
   card shows 0 until the phone's first sync of the day.
@@ -124,7 +124,7 @@ For each ring, the first of these that has a usable number wins:
 | :--- | :--- | :--- |
 | `device` | | Companion App device. Fills in every sensor below. |
 | `layout` | `full` | `full` (rings, details, 7-day strip), `ring` (rings only), `ring_values` (rings with numbers inside) |
-| `theme` | `auto` | `auto`, `dark`, `light`, `transparent` |
+| `theme` | `auto` | `auto`, `dark`, `light`, `transparent`. `auto` goes by how dark the theme's card background is, then Home Assistant's dark mode |
 | `title` | | Header text. `full` shows "Activity" when empty. Lone rings show a header only when set. |
 | `rings` | `[move, exercise, stand]` | Any subset, always drawn outside-in in that order |
 | `move_entity` / `exercise_entity` / `stand_entity` | from `device` | Value sensors. Move in kcal (or Cal, cal, J, kJ, MJ, Wh, kWh). Exercise and Stand in any time unit (ms, s, min, h, d). |

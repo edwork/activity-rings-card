@@ -1,6 +1,6 @@
 {
   "name": "activity-rings-card",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "private": true,
   "description": "Move, Exercise and Stand activity rings for Home Assistant from the Companion App's Apple Health sensors.",
   "keywords": [

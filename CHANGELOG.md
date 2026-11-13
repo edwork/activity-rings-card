@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.1 - 2026-11-13
+
+- `theme: auto` now goes by the theme's own card background
+  (`--ha-card-background`, then `--card-background-color`, then
+  `--primary-background-color`), and falls back to Home Assistant's dark mode
+  only when it can't read one. Dark-only themes, which have no light/dark
+  `modes`, leave dark mode off, so 2.0.0 drew a white card on them. A
+  see-through card background is skipped in favour of the page background.
+
 ## 2.0.0 - 2026-11-11
 
 First public release, for Companion App for iOS 2026.10.3.
