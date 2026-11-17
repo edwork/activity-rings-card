@@ -1,6 +1,6 @@
 # Activity Rings Card
 
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories/)
+[![HACS Default](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://hacs.xyz)
 [![Validate](https://github.com/edwork/activity-rings-card/actions/workflows/validate.yml/badge.svg)](https://github.com/edwork/activity-rings-card/actions/workflows/validate.yml)
 [![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=edwork&repository=activity-rings-card&category=plugin)
 
@@ -51,11 +51,15 @@ Apple Health**, then allow access when iOS asks. The card needs:
 
 ## Installation
 
-### HACS
+### HACS (Marketplace)
 
-1. HACS → ⋮ → **Custom repositories**. Add `https://github.com/edwork/activity-rings-card` with type **Dashboard**.
-2. Search for **Activity Rings Card**, then **Download**.
-3. Reload the browser. HACS adds the dashboard resource for you.
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=edwork&repository=activity-rings-card&category=plugin)
+
+1. Open HACS, search for **Activity Rings Card**, then **Download**.
+2. Reload the browser. HACS adds the dashboard resource for you.
+
+If it doesn't show up in search, add it as a custom repository: HACS → ⋮ → **Custom repositories**,
+add `https://github.com/edwork/activity-rings-card` with type **Dashboard**, then search again.
 
 ### Manual
 

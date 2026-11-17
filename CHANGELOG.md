@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- README: install by searching HACS (Marketplace); adding a custom repository is now the fallback. The badge now says HACS Default.
+
 ## 2.0.1 - 2026-11-13
 
 - `theme: auto` now goes by the theme's own card background
